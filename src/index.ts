@@ -1,6 +1,5 @@
 #! /usr/bin/env node
 import readChangeset from '@changesets/read';
-import writeChangeset from '@changesets/write';
 import { getPackagesSync } from '@manypkg/get-packages';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -11,6 +10,7 @@ import {
   difference,
   getCommitsSinceRef,
 } from './utils';
+import writeChangeset from './write';
 
 const CHANGESET_CONFIG_LOCATION = path.join('.changeset', 'config.json');
 
@@ -26,9 +26,10 @@ const conventionalCommitChangeset = async (
 
   const commitsSinceBase = getCommitsSinceRef(baseBranch);
 
-  const commitsWithMessages = commitsSinceBase.map((commitHash) => ({
-    commitHash,
-    commitMessage: execSync(`git log -n 1 --pretty=format:%B ${commitHash}`).toString(),
+  const commitsWithMessages = commitsSinceBase.map((commit) => ({
+    commitHash: commit.hash,
+    commitDate: commit.date,
+    commitMessage: execSync(`git log -n 1 --pretty=format:%B ${commit.hash}`).toString(),
   }));
 
   const changelogMessagesWithAssociatedCommits = associateCommitsToConventionalCommitMessages(commitsWithMessages);

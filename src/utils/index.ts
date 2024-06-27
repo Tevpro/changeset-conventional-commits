@@ -1,15 +1,17 @@
 import type { Changeset } from '@changesets/types';
 import { execSync } from 'child_process';
-import type { ManyPkgPackage } from '../types';
+import type { ChangesetConventionalCommit, ManyPkgPackage } from '../types';
 
 interface Commit {
   commitHash: string;
+  commitDate: Date;
   commitMessage: string;
 }
 
 interface ConventionalMessagesToCommits {
   changelogMessage: string;
   commitHashes: string[];
+  commitDates: Date[];
 }
 
 /*
@@ -53,6 +55,7 @@ export const associateCommitsToConventionalCommitMessages = (commits: Commit[]):
         {
           changelogMessage: curr.commitMessage,
           commitHashes: [curr.commitHash],
+          commitDates: [curr.commitDate],
         },
       ];
     }
@@ -64,6 +67,7 @@ export const associateCommitsToConventionalCommitMessages = (commits: Commit[]):
           {
             changelogMessage: curr.commitMessage,
             commitHashes: [curr.commitHash],
+            commitDates: [curr.commitDate],
           },
         ];
       } else {
@@ -72,6 +76,7 @@ export const associateCommitsToConventionalCommitMessages = (commits: Commit[]):
           {
             changelogMessage: curr.commitMessage,
             commitHashes: [...acc[acc.length - 1].commitHashes, curr.commitHash],
+            commitDates: [...acc[acc.length - 1].commitDates, curr.commitDate],
           },
         ];
       }
@@ -81,6 +86,7 @@ export const associateCommitsToConventionalCommitMessages = (commits: Commit[]):
         {
           ...acc[acc.length - 1],
           commitHashes: [...acc[acc.length - 1].commitHashes, curr.commitHash],
+          commitDates: [...acc[acc.length - 1].commitDates, curr.commitDate],
         },
       ];
     }
@@ -125,9 +131,11 @@ export const conventionalMessagesWithCommitsToChangesets = (
         }),
         summary: entry.changelogMessage,
         packagesChanged,
+        hash: entry.commitHashes[0],
+        date: entry.commitDates[0],
       };
     })
-    .filter(Boolean) as Changeset[];
+    .filter(Boolean) as ChangesetConventionalCommit[];
 };
 
 export const gitFetch = (branch: string) => {
@@ -158,13 +166,24 @@ export const getCommitsSinceRef = (branch: string) => {
 
   sinceRef = sinceRef.trim();
 
-  return execSync(`git rev-list --ancestry-path ${sinceRef}...HEAD`).toString().split('\n').filter(Boolean).reverse();
+  const commits = execSync(`git log --pretty=format:"%H %cd" --date=iso-strict --ancestry-path ${sinceRef}...HEAD`)
+    .toString()
+    .split('\n')
+    .filter(Boolean)
+    .reverse()
+    .map((commit) => commit.split(' '))
+    .map(([commitHash, commitDate]) => ({
+      hash: commitHash,
+      date: new Date(commitDate),
+    }));
+
+  return commits;
 };
 
 const compareChangeSet = (a: Changeset, b: Changeset): boolean => {
   return a.summary.replace(/\n$/, '') === b.summary && JSON.stringify(a.releases) == JSON.stringify(b.releases);
 };
 
-export const difference = (a: Changeset[], b: Changeset[]): Changeset[] => {
+export const difference = (a: ChangesetConventionalCommit[], b: Changeset[]): ChangesetConventionalCommit[] => {
   return a.filter((changeA) => !b.some((changeB) => compareChangeSet(changeA, changeB)));
 };
