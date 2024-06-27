@@ -34,9 +34,11 @@ export interface ManyPkgPackages {
 }
 
 export type ChangesetConventionalCommit = Changeset & {
-  packagesChanged: {
+  packagesChanged?: {
     dir: string;
     relativeDir: string;
     packageJson: PkgJson;
   }[];
+  hash?: string;
+  date?: Date;
 };
